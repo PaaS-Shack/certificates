@@ -25,7 +25,7 @@
     "moleculer-repl": "^0.7.3"
   },
   "dependencies": {
-    "acme-client": "v3.3.2",
+    "acme-client": "v5.x",
     "config-mixin": "git+https://github.com/FLYBYME/config-mixin.git",
     "cron-mixin": "git+https://github.com/PaaS-Shack/cron-mixin.git",
     "db-mixin": "git+https://github.com/PaaS-Shack/db-mixin.git",
