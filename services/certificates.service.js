@@ -215,19 +215,13 @@ module.exports = {
 		},
 		vHostParts(vHost) {
 
-			var parts = vHost.split('.');
-			var result = [parts.join('.')];
-			var n;
-			// Prevent abusive lookups
-			while (parts.length > 10) {
-				parts.shift();
-			}
-			while (parts.length > 1) {
-				parts.shift();
-				n = parts.join('.');
-				result.push('*.' + n);
-			}
-			result.push('*');
+			const parts = vHost.split('.');
+			const result = [parts.join('.')];
+			let n;
+
+			parts.shift();
+			n = parts.join('.');
+			result.push('*.' + n);
 
 			return result;
 		},
