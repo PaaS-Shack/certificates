@@ -168,6 +168,7 @@ module.exports = {
 			params: {
 				domain: { type: "string", min: 3, optional: false },
 				environment: { type: "enum", default: 'production', values: ["staging", "production"], optional: true },
+				type: { type: "enum", default: 'letsencrypt', values: ["selfsigned", "letsencrypt"], optional: true },
 			},
 			permissions: ['certificates.get'],
 			auth: "required",
@@ -177,12 +178,13 @@ module.exports = {
 				const parts = this.vHostParts(params.domain)
 
 				const environment = params.environment
+				const type = params.type
 
 				let cert
 				for (let index = 0; index < parts.length; index++) {
 					const domain = parts[index];
 					let certs = await this.findEntity(null, {
-						query: { domain, environment },
+						query: { domain, environment, type },
 						sort: ['-createdAt'],
 						limit: 1
 					})
