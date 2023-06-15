@@ -30,7 +30,7 @@ module.exports = {
 	 */
 	settings: {
 		rest: true,
-		
+
 		fields: {
 			privkey: {
 				type: "string",
@@ -74,16 +74,16 @@ module.exports = {
 				trim: true,
 				empty: false,
 			},
-            ...DbService.FIELDS
+			...DbService.FIELDS
 		},
 
 		defaultPopulates: [],
 
-        scopes: {
-            ...DbService.SCOPE
-        },
+		scopes: {
+			...DbService.SCOPE
+		},
 
-        defaultScopes: [...DbService.DSCOPE],
+		defaultScopes: [...DbService.DSCOPE],
 
 		config: {
 			"certificates.autoGenerate": false
@@ -94,22 +94,63 @@ module.exports = {
 	 * Actions
 	 */
 	actions: {
-        ...DbService.ACTIONS,
+		...DbService.ACTIONS,
 
 
 		getExpiring: {
-			params: {
-
-			},
 			async handler(ctx) {
-				return this.findEntities(null, {
-					query: {},
+
+				const days90 = Date.now() - 7.776e+9
+				const days60 = Date.now() - 5.184e+9
+				const days30 = Date.now() - 2.592e+9
+
+				const certs = await this.findEntities(null, {
+					query: {
+						createdAt: { $gte: days90 }
+					},
 					fields: ['id', 'createdAt', 'domain', 'environment']
-				}).then((res) => res.map((entity) => {
-					entity.createdAt = new Date(entity.createdAt);
-					entity.age = (Date.now() - entity.createdAt.getTime()) / (1000 * 3600 * 24);
+				}, { raw: true });
+
+
+				const map = new Map()
+
+				for (let index = 0; index < certs.length; index++) {
+					const cert = certs[index];
+
+					cert.age = (Date.now() - (new Date(cert.createdAt))) / (1000 * 3600 * 24);
+
+					if (map.has(cert.domain)) {
+						const old = map.get(cert.domain)
+						if (cert.createdAt > old.createdAt) {
+							map.set(cert.domain, cert)
+						}
+					} else {
+						map.set(cert.domain, cert)
+					}
+				}
+
+
+				return Array.from(map.values()).filter((entity) => entity.age > 60);
+			}
+		},
+		listExpiring: {
+			async handler(ctx) {
+
+				const days90 = Date.now() - 7.776e+9
+				const days60 = Date.now() - 5.184e+9
+				const days30 = Date.now() - 2.592e+9
+
+				const certs = await this.findEntities(null, {
+					query: {
+						createdAt: { $gte: days90 }
+					},
+					fields: ['id', 'createdAt', 'domain', 'environment']
+				}, { raw: true });
+
+				return certs.map((entity) => {
+					entity.age = (Date.now() - (new Date(entity.createdAt))) / (1000 * 3600 * 24);
 					return entity;
-				}).filter((entity) => entity.age > 60));
+				})
 			}
 		},
 		requestCert: {
