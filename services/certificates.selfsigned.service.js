@@ -28,8 +28,6 @@ module.exports = {
 	 */
 	settings: {
 		rest: true,
-
-
 	},
 
 	/**
@@ -82,14 +80,6 @@ module.exports = {
 
 				this.logger.info(`${params.domain} ${email} Challenge successful ${new Date(result.createdAt)} ${result.id}`)
 
-				if (false) {
-
-					await this.removeEntity(null, {
-						id: certs.id
-					})
-
-					ctx.broadcast('certificates.update', result)
-				}
 				return result;
 			}
 		},
@@ -106,64 +96,7 @@ module.exports = {
 	 * Methods
 	 */
 	methods: {
-		async challengeRemove(ctx, domain, authz, challenge, keyAuthorization) {
-			console.log('challengeRemove')
-			const fqdn = `_acme-challenge.${authz.identifier.value}`;
-			const data = keyAuthorization;
-			const record = await ctx.call('v1.domains.records.find', {
-				domain: domain.id,
-				query: {
-					fqdn,
-					type: "TXT",
-					data,
-				}
-			}).then((res) => res.shift())
-
-			this.logger.info(`${domain.domain} removing TXT record for ${fqdn}`, record)
-
-			await ctx.call('v1.domains.records.remove', { id: record.id }).then(console.log).catch(console.log);
-
-			return this.sleep(1000)
-		},
-		async challengeCreate(ctx, domain, authz, challenge, keyAuthorization) {
-
-			const fqdn = `_acme-challenge.${authz.identifier.value}`;
-			const data = keyAuthorization;
-			const record = {
-				domain: domain.id,
-				fqdn,
-				type: "TXT",
-				data,
-			}
-
-			this.logger.info(`${domain.domain} Creating TXT record for ${fqdn}`)
-
-			await ctx.call('v1.domains.records.create', record).then(console.log).catch(console.log);
-			return this.sleep(1000)
-		},
-		sleep(time) {
-			return new Promise((resolve) => {
-				setTimeout(resolve, time)
-			});
-		},
-		vHostParts(vHost) {
-
-			var parts = vHost.split('.');
-			var result = [parts.join('.')];
-			var n;
-			// Prevent abusive lookups
-			while (parts.length > 6) {
-				parts.shift();
-			}
-			while (parts.length > 1) {
-				parts.shift();
-				n = parts.join('.');
-				result.push('*.' + n);
-			}
-			result.push('*');
-
-			return result;
-		},
+		
 	},
 
 	/**

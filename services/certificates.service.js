@@ -16,11 +16,8 @@ module.exports = {
 	version: 1,
 
 	mixins: [
-		DbService({
-
-		}),
+		DbService({}),
 		ConfigLoader(['certificates.**']),
-		//Lock('certificates', {})
 	],
 
 	/**
@@ -33,6 +30,7 @@ module.exports = {
 	 */
 	settings: {
 		rest: true,
+		
 		fields: {
 			privkey: {
 				type: "string",
@@ -76,10 +74,17 @@ module.exports = {
 				trim: true,
 				empty: false,
 			},
+            ...DbService.FIELDS
 		},
+
 		defaultPopulates: [],
-		scopes: {},
-		defaultScopes: [],
+
+        scopes: {
+            ...DbService.SCOPE
+        },
+
+        defaultScopes: [...DbService.DSCOPE],
+
 		config: {
 			"certificates.autoGenerate": false
 		}
@@ -89,35 +94,9 @@ module.exports = {
 	 * Actions
 	 */
 	actions: {
+        ...DbService.ACTIONS,
 
-		create: {
-			rest: false,
-			permissions: ['certificates.create']
-		},
-		list: {
-			permissions: ['certificates.list']
-		},
-		find: {
-			rest: "GET /find",
-			permissions: ['certificates.find']
-		},
-		count: {
-			rest: "GET /count",
-			permissions: ['certificates.count']
-		},
-		get: {
-			needEntity: true,
-			permissions: ['certificates.get']
-		},
-		update: {
-			needEntity: true,
-			permissions: ['certificates.update']
-		},
-		replace: false,
-		remove: {
-			needEntity: true,
-			permissions: ['certificates.remove']
-		},
+
 		getExpiring: {
 			params: {
 
@@ -157,9 +136,9 @@ module.exports = {
 			async handler(ctx) {
 				const expiringCerts = await this.actions.getExpiring({}, { parentCtx: ctx })
 				return Promise.allSettled(expiringCerts.map((expiring) =>
-					this.actions.dns({
+					ctx.call('v1.certificates.letsencrypt.dns', {
 						domain: expiring.domain
-					}, { parentCtx: ctx })
+					})
 				));
 			}
 		},

@@ -16,11 +16,8 @@ module.exports = {
 	version: 1,
 
 	mixins: [
-		DbService({
-
-		}),
+		DbService({}),
 		ConfigLoader(['certificates.**']),
-		//Lock('certificates', {})
 	],
 
 	/**
@@ -33,6 +30,7 @@ module.exports = {
 	 */
 	settings: {
 		rest: true,
+
 		fields: {
 
 			privkey: {
@@ -77,44 +75,23 @@ module.exports = {
 				empty: false,
 			},
 
+			...DbService.FIELDS
+
 		},
 		defaultPopulates: [],
-		scopes: {},
-		defaultScopes: []
+
+		scopes: {
+			...DbService.SCOPE
+		},
+
+		defaultScopes: [...DbService.DSCOPE]
 	},
 
 	/**
 	 * Actions
 	 */
 	actions: {
-
-		create: {
-			permissions: ['certificates.create']
-		},
-		list: {
-			permissions: ['certificates.list']
-		},
-		find: {
-			rest: "GET /find",
-			permissions: ['certificates.find']
-		},
-		count: {
-			rest: "GET /count",
-			permissions: ['certificates.count']
-		},
-		get: {
-			needEntity: true,
-			permissions: ['certificates.get']
-		},
-		update: {
-			needEntity: true,
-			permissions: ['certificates.update']
-		},
-		replace: false,
-		remove: {
-			needEntity: true,
-			permissions: ['certificates.remove']
-		},
+		...DbService.ACTIONS,
 		getExpiring: {
 			params: {
 
@@ -270,14 +247,6 @@ module.exports = {
 
 				this.logger.info(`${params.domain} ${email} Challenge successful ${new Date(result.createdAt)} ${result.id}`)
 
-				if (false && certs) {
-
-					await this.removeEntity(null, {
-						id: certs.id
-					})
-
-					ctx.broadcast('certificates.update', result)
-				}
 				return result;
 			}
 		},
