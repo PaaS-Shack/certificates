@@ -95,8 +95,7 @@ module.exports = {
 	 */
 	actions: {
 		...DbService.ACTIONS,
-
-
+		create:{rest:false},
 		getExpiring: {
 			async handler(ctx) {
 
