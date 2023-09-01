@@ -3,7 +3,7 @@
 const DbService = require("db-mixin");
 const ConfigLoader = require("config-mixin");
 const { MoleculerClientError } = require("moleculer").Errors;
-const certinfo = require('cert-info');
+const forge = require('node-forge');
 
 //const Lock = require("../mixins/lock");
 
@@ -258,12 +258,21 @@ module.exports = {
 				if (!cert)
 					throw new MoleculerClientError("Certificate not found.", 400, "ERR_CERTIFICATE_NOT_FOUND");
 
-				// get the details of the certificate
-				const details = certinfo.info(cert.cert);
 
-				return {
-					...details
-				};
+				// Parse the certificate
+				const certificate = forge.pki.certificateFromPem(cert.cert);
+
+				// get the certificate details
+				const details = {
+					issuer: certificate.issuer,
+					subject: certificate.subject,
+					validity: certificate.validity,
+					serialNumber: certificate.serialNumber,
+					extensions: certificate.extensions,
+					...certificate.siginfo,
+				}
+
+				return details;
 			}
 		}
 	},
