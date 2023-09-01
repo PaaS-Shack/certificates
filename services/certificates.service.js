@@ -258,12 +258,12 @@ module.exports = {
 				if (!cert)
 					throw new MoleculerClientError("Certificate not found.", 400, "ERR_CERTIFICATE_NOT_FOUND");
 
+				// get the details of the certificate
 				const details = certinfo.info(cert.cert);
 
 				return {
 					...details
 				};
-
 			}
 		}
 	},
@@ -304,9 +304,8 @@ module.exports = {
 			return result;
 		},
 		findByID(ctx, id) {
-			return this.findEntity(ctx, {
+			return this.findEntity(null, {
 				query: { id },
-
 			});
 		},
 		// seed the config sore with default config values
