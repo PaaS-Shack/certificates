@@ -304,9 +304,7 @@ module.exports = {
 			return result;
 		},
 		findByID(ctx, id) {
-			return this.findEntity(null, {
-				query: { id },
-			});
+			return ctx.call('v1.certificates.resolve', { id });
 		},
 		// seed the config sore with default config values
 		async seedDB() {
