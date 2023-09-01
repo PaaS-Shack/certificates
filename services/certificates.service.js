@@ -1,6 +1,5 @@
 "use strict";
 
-const acme = require('acme-client');
 const DbService = require("db-mixin");
 const ConfigLoader = require("config-mixin");
 const { MoleculerClientError } = require("moleculer").Errors;
@@ -9,19 +8,34 @@ const { MoleculerClientError } = require("moleculer").Errors;
 
 
 /**
- * Addons service
+ * Service for managing certificates
+ * @name v1.certificates
+ * @version 1.0.0
+ * @fires "v1.certificates.created"
+ * @fires "v1.certificates.updated"
+ * @fires "v1.certificates.removed"
+ * @mixin DbService ConfigLoader
  */
 module.exports = {
+	// name of service
 	name: "certificates",
+	// version of service
 	version: 1,
 
+	/**
+	 * Service Mixins
+	 * @type {Array}
+	 * @property {DbService} DbService - Database mixin
+	 * @property {ConfigLoader} ConfigLoader - Config loader mixin
+	 */
 	mixins: [
 		DbService({}),
 		ConfigLoader(['certificates.**']),
 	],
 
 	/**
-	 * Service dependencies
+	 * Service dependencies 
+	 * @type {Array}
 	 */
 	dependencies: [],
 
@@ -37,6 +51,7 @@ module.exports = {
 				required: true,
 				trim: true,
 				empty: false,
+				secure: true,
 			},
 			chain: {
 				type: "string",
@@ -74,6 +89,7 @@ module.exports = {
 				trim: true,
 				empty: false,
 			},
+
 			...DbService.FIELDS
 		},
 
@@ -86,7 +102,7 @@ module.exports = {
 		defaultScopes: [...DbService.DSCOPE],
 
 		config: {
-			"certificates.autoGenerate": false
+			"certificates.autoGenerate": false,// generate certificates automatically
 		}
 	},
 
@@ -95,9 +111,12 @@ module.exports = {
 	 */
 	actions: {
 		...DbService.ACTIONS,
-		create:{rest:false},
+
+		create: { rest: false },
+		// get a list of expiring certificates that are older than 60 days
 		getExpiring: {
 			async handler(ctx) {
+
 
 				const days90 = Date.now() - 7.776e+9
 				const days60 = Date.now() - 5.184e+9
@@ -110,28 +129,13 @@ module.exports = {
 					fields: ['id', 'createdAt', 'domain', 'environment']
 				}, { raw: true });
 
-
-				const map = new Map()
-
-				for (let index = 0; index < certs.length; index++) {
-					const cert = certs[index];
-
-					cert.age = (Date.now() - (new Date(cert.createdAt))) / (1000 * 3600 * 24);
-
-					if (map.has(cert.domain)) {
-						const old = map.get(cert.domain)
-						if (cert.createdAt > old.createdAt) {
-							map.set(cert.domain, cert)
-						}
-					} else {
-						map.set(cert.domain, cert)
-					}
-				}
-
-
-				return Array.from(map.values()).filter((entity) => entity.age > 60);
+				return certs.filter((entity) => {
+					entity.age = (Date.now() - (new Date(entity.createdAt))) / (1000 * 3600 * 24);
+					return entity.age > 60;
+				});
 			}
 		},
+		// get a list of expiring certificates that are older than 60 days
 		listExpiring: {
 			async handler(ctx) {
 
@@ -152,6 +156,8 @@ module.exports = {
 				})
 			}
 		},
+		// replaces create action rest endpoint
+		// with one that points to the letsencrypt dns action
 		requestCert: {
 			rest: 'POST /',
 			params: {
@@ -159,7 +165,6 @@ module.exports = {
 				environment: { type: "enum", default: 'production', values: ["staging", "production"], optional: true },
 			},
 			async handler(ctx) {
-
 				const params = Object.assign({}, ctx.params);
 
 				return ctx.call('v1.certificates.letsencrypt.dns', {
@@ -169,12 +174,12 @@ module.exports = {
 
 			}
 		},
+		// updated expiring certificates with new ones
 		updateExpiring: {
-			params: {
-
-			},
+			params: {},
 			async handler(ctx) {
-				const expiringCerts = await this.actions.getExpiring({}, { parentCtx: ctx })
+				const expiringCerts = await this.actions.getExpiring({}, { parentCtx: ctx });
+
 				return Promise.allSettled(expiringCerts.map((expiring) =>
 					ctx.call('v1.certificates.letsencrypt.dns', {
 						domain: expiring.domain
@@ -182,6 +187,8 @@ module.exports = {
 				));
 			}
 		},
+
+		// resolves a domain to a certificate or creates one
 		resolveDomain: {
 			cache: false,
 			params: {
@@ -194,25 +201,38 @@ module.exports = {
 			async handler(ctx) {
 				const params = Object.assign({}, ctx.params);
 
-				const parts = this.vHostParts(params.domain)
+				const found = await this.findEntity(null, {
+					query: {
+						domain: params.domain,
+						environment: params.environment,
+						type: params.type
+					},
+					fields: ['id', 'createdAt', 'domain', 'environment', 'type']
+				});
 
-				const environment = params.environment
-				const type = params.type
-
-				let cert
-				for (let index = 0; index < parts.length; index++) {
-					const domain = parts[index];
-					let certs = await this.findEntity(null, {
-						query: { domain, environment, type },
-						sort: ['-createdAt'],
-						limit: 1
-					})
-					if (certs)
-						return certs
+				if (found) {
+					found.age = (Date.now() - (new Date(found.createdAt))) / (1000 * 3600 * 24);
+					return found;
 				}
-				return ctx.call('v1.certificates.letsencrypt.resolveDomain', params)
 
-				throw new MoleculerClientError("certificates not found.", 400, "ERR_EMAIL_EXISTS");
+				// if the certificate is not found, create one
+				if (params.type == 'letsencrypt') {
+					return ctx.call('v1.certificates.letsencrypt.dns', {
+						domain: params.domain,
+						environment: params.environment
+					})
+				}
+
+				// if the certificate is not found, create one
+				if (params.type == 'selfsigned') {
+					return ctx.call('v1.certificates.selfsigned', {
+						domain: params.domain,
+						environment: params.environment
+					})
+				}
+
+				// no certificate type found throw an error
+				throw new MoleculerClientError('Unknown certificate type', 400, 'UNKNOWN_CERTIFICATE_TYPE', { params });
 			}
 		},
 	},
@@ -228,24 +248,31 @@ module.exports = {
 	 * Methods
 	 */
 	methods: {
-
+		// promisify setTimeout
 		sleep(time) {
 			return new Promise((resolve) => {
 				setTimeout(resolve, time)
 			});
 		},
+		// split the vHost into parts and return an array of possible vHosts
+		// www.example.com -> [ 'www.example.com', '*.example.com' ]
 		vHostParts(vHost) {
+			const parts = vHost.split('.')
+			const result = []
 
-			const parts = vHost.split('.');
-			const result = [parts.join('.')];
-			let n;
-
-			parts.shift();
-			n = parts.join('.');
-			result.push('*.' + n);
+			for (let index = 0; index < parts.length; index++) {
+				const part = parts[index];
+				// skip the first part of the domain
+				const subdomain = parts.slice(index + 1).join('.')
+				result.push(vHost)
+				// skip the wildcard
+				if (part != '*')
+					result.push('*.' + subdomain)
+			}
 
 			return result;
 		},
+		// seed the config sore with default config values
 		async seedDB() {
 			for (const [key, value] of Object.entries(this.settings.config || {})) {
 				const found = await this.broker.call('v1.config.get', { key });
