@@ -3,6 +3,7 @@
 const DbService = require("db-mixin");
 const ConfigLoader = require("config-mixin");
 const { MoleculerClientError } = require("moleculer").Errors;
+const certinfo = require('cert-info');
 
 //const Lock = require("../mixins/lock");
 
@@ -74,6 +75,12 @@ module.exports = {
 			email: {
 				type: "string",
 				required: true,
+				trim: true,
+				empty: false,
+			},
+			owner: {
+				type: "string",
+				required: false,
 				trim: true,
 				empty: false,
 			},
@@ -235,6 +242,30 @@ module.exports = {
 				throw new MoleculerClientError('Unknown certificate type', 400, 'UNKNOWN_CERTIFICATE_TYPE', { params });
 			}
 		},
+
+		// action to return details information about a certificate
+		// info like the certificate singed by, the domain, the owner, etc.
+		details: {
+			params: {
+				id: { type: "string", min: 3, optional: false },
+			},
+			permissions: ['certificates.details'],
+			async handler(ctx) {
+				const params = Object.assign({}, ctx.params);
+
+				const cert = await this.findByID(ctx, params.id);
+
+				if (!cert)
+					throw new MoleculerClientError("Certificate not found.", 400, "ERR_CERTIFICATE_NOT_FOUND");
+
+				const details = certinfo.info(cert.cert);
+
+				return {
+					...details
+				};
+
+			}
+		}
 	},
 
 	/**
@@ -271,6 +302,12 @@ module.exports = {
 			}
 
 			return result;
+		},
+		findByID(ctx, id) {
+			return this.findEntity(ctx, {
+				query: { id },
+
+			});
 		},
 		// seed the config sore with default config values
 		async seedDB() {

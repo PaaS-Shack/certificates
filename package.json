@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "acme-client": "v5.x",
+    "cert-info": "^1.5.1",
     "config-mixin": "git+https://github.com/PaaS-Shack/config-mixin.git",
     "cron-mixin": "git+https://github.com/PaaS-Shack/cron-mixin.git",
     "db-mixin": "git+https://github.com/PaaS-Shack/db-mixin.git",

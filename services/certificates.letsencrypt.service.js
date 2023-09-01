@@ -67,6 +67,12 @@ module.exports = {
 				trim: true,
 				empty: false,
 			},
+			owner: {
+				type: "string",
+				required: false,
+				trim: true,
+				empty: false,
+			},
 
 			environment: {
 				type: "string",
