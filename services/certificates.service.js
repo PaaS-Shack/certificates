@@ -15,7 +15,8 @@ const forge = require('node-forge');
  * @fires "v1.certificates.created"
  * @fires "v1.certificates.updated"
  * @fires "v1.certificates.removed"
- * @mixin DbService ConfigLoader
+ * @mixin ConfigLoader 
+ * @mixin DbService 
  */
 module.exports = {
 	// name of service
@@ -44,7 +45,7 @@ module.exports = {
 	 * Service settings
 	 */
 	settings: {
-		rest: true,
+		rest: true,//enable rest endpoints
 
 		fields: {
 			privkey: {
@@ -123,85 +124,96 @@ module.exports = {
 	 * Actions
 	 */
 	actions: {
+		// extend the default actions
 		...DbService.ACTIONS,
 
+		// disable rest endpoint for create action
 		create: { rest: false },
-		// get a list of expiring certificates that are older than 60 days
+
+		/**
+		 * Get a list of expiring certificates
+		 * 
+		 * @actions
+		 * @param {number} days - Number of days to look into the future
+		 * 
+		 * @returns {Array} - Array of certificates
+		 */
 		getExpiring: {
-			async handler(ctx) {
-
-
-				const days90 = Date.now() - 7.776e+9
-				const days60 = Date.now() - 5.184e+9
-				const days30 = Date.now() - 2.592e+9
-
-				const certs = await this.findEntities(null, {
-					query: {
-						createdAt: { $gte: days90 }
-					},
-					fields: ['id', 'createdAt', 'domain', 'environment']
-				}, { raw: true });
-
-				return certs.filter((entity) => {
-					entity.age = (Date.now() - (new Date(entity.createdAt))) / (1000 * 3600 * 24);
-					return entity.age > 60;
-				});
-			}
-		},
-		// get a list of expiring certificates that are older than 60 days
-		listExpiring: {
-			async handler(ctx) {
-
-				const days90 = Date.now() - 7.776e+9
-				const days60 = Date.now() - 5.184e+9
-				const days30 = Date.now() - 2.592e+9
-
-				const certs = await this.findEntities(null, {
-					query: {
-						createdAt: { $gte: days90 }
-					},
-					fields: ['id', 'createdAt', 'domain', 'environment']
-				}, { raw: true });
-
-				return certs.map((entity) => {
-					entity.age = (Date.now() - (new Date(entity.createdAt))) / (1000 * 3600 * 24);
-					return entity;
-				})
-			}
-		},
-		// replaces create action rest endpoint
-		// with one that points to the letsencrypt dns action
-		requestCert: {
-			rest: 'POST /',
-			params: {
-				domain: { type: "string", min: 3, optional: false },
-				environment: { type: "enum", default: 'production', values: ["staging", "production"], optional: true },
+			rest: {
+				method: "GET",
+				path: "/expiring"
 			},
+			params: {
+				days: { type: "number", default: 30, optional: true },
+			},
+			permissions: ['certificates.expiring'],
 			async handler(ctx) {
 				const params = Object.assign({}, ctx.params);
 
-				return ctx.call('v1.certificates.letsencrypt.dns', {
-					domain: params.domain,
-					environment: params.environment
+				// get the date in the future
+				const now = new Date();
+				const expiresAt = new Date(now.getTime() + (params.days * 24 * 60 * 60 * 1000));
+
+				// find all certificates that expire before the given date
+				const found = await this.findEntities(null, {
+					query: {
+						expiresAt: { $lte: expiresAt }
+					},
+					fields: ['id', 'createdAt', 'domain', 'environment', 'type', 'expiresAt']
+				});
+
+				return found.map((cert) => {
+					cert.age = (Date.now() - (new Date(cert.createdAt))) / (1000 * 3600 * 24);
+					cert.expiresIn = (cert.expiresAt - Date.now()) / (1000 * 3600 * 24);
+					return cert;
 				})
-
 			}
 		},
-		// updated expiring certificates with new ones
-		updateExpiring: {
-			params: {},
+
+		/**
+		 * Renew expiring certificates
+		 * 
+		 * @actions
+		 * @param {number} days - Number of days to look into the future
+		 * 
+		 * @returns {Array} - Array of renewed certificates
+		 */
+		renewExpiring: {
+			rest: {
+				method: "GET",
+				path: "/renew-expiring"
+			},
+			params: {
+				days: { type: "number", default: 30, optional: true },
+			},
+			permissions: ['certificates.renew'],
 			async handler(ctx) {
-				const expiringCerts = await this.actions.getExpiring({}, { parentCtx: ctx });
+				const params = Object.assign({}, ctx.params);
 
-				return Promise.allSettled(expiringCerts.map((expiring) =>
-					ctx.call('v1.certificates.letsencrypt.dns', {
-						domain: expiring.domain
-					})
-				));
+				//use action getExpiring to get a list of expiring certificates
+				const expiring = await ctx.call('v1.certificates.getExpiring', params);
+
+				// renew all expiring certificates
+				const renewed = await Promise.all(expiring.map(async (cert) => {
+					const renewed = await ctx.call('v1.certificates.acme.renew', { id: cert.id });
+					return renewed;
+				}));
+
+				return renewed;
 			}
 		},
 
-		// resolves a domain to a certificate or creates one
+		/**
+		 * Resolve most recent certificate for a domain
+		 * If no certificate is found, create one
+		 * 
+		 * @actions
+		 * @param {string} domain - Domain to resolve
+		 * @param {string} environment - Environment to resolve
+		 * @param {string} type - Type of certificate to resolve
+		 * 
+		 * @returns {Object} - Certificate
+		 */
 		resolveDomain: {
 			cache: false,
 			params: {
@@ -228,6 +240,11 @@ module.exports = {
 					return found;
 				}
 
+				//if autoGenerate false throw error
+				if (this.config['certificates.autoGenerate'] === false) {
+					throw new MoleculerClientError('Certificate not found.', 400, 'ERR_CERTIFICATE_NOT_FOUND', { params });
+				}
+
 				// if the certificate is not found, create one
 				if (params.type == 'letsencrypt') {
 					return ctx.call('v1.certificates.letsencrypt.dns', {
@@ -249,8 +266,14 @@ module.exports = {
 			}
 		},
 
-		// action to return details information about a certificate
-		// info like the certificate singed by, the domain, the owner, etc.
+		/**
+		 * Certificate details
+		 * 
+		 * @actions
+		 * @param {string} id - ID of the certificate
+		 * 
+		 * @returns {Object} - Certificate details
+		 */
 		details: {
 			params: {
 				id: { type: "string", min: 3, optional: false },
@@ -300,8 +323,14 @@ module.exports = {
 				setTimeout(resolve, time)
 			});
 		},
-		// split the vHost into parts and return an array of possible vHosts
-		// www.example.com -> [ 'www.example.com', '*.example.com' ]
+
+		/**
+		 * Split a vHost into parts
+		 * 
+		 * @param {String} vHost 
+		 * 
+		 * @returns {Array} - Array of vHost parts
+		 */
 		vHostParts(vHost) {
 			const parts = vHost.split('.')
 			const result = []
@@ -318,10 +347,49 @@ module.exports = {
 
 			return result;
 		},
+
+		/**
+		 * Find a certificate by id in the database
+		 * 
+		 * @param {Object} ctx - Context
+		 * @param {String} domain - Domain ID to find
+		 * 
+		 * @returns {Object} - Certificate
+		 */
 		findByID(ctx, id) {
-			return ctx.call('v1.certificates.resolve', { id });
+			return this.resolveEntity(null, {
+				id
+			})
 		},
-		// seed the config sore with default config values
+
+		/**
+		 * Find a certificate by domain in the database
+		 * most recently used for type and environment
+		 * 
+		 * @param {Object} ctx - Context
+		 * @param {String} domain - FQDN to find
+		 * @param {String} type - Type to find letsencrypt or selfsigned
+		 * @param {String} environment - Environment to find staging or production
+		 * 
+		 * @returns {Object} - Certificate
+		 */
+		findByDomain(ctx, domain, type, environment) {
+			return this.findEntity(null, {
+				query: {
+					domain,
+					type,
+					environment
+				},
+				sort: ['-createdAt'],
+
+			})
+		},
+
+		/**
+		 * seed the config sore with default config values
+		 * 
+		 * @returns {Promise} - Promise
+		 */
 		async seedDB() {
 			for (const [key, value] of Object.entries(this.settings.config || {})) {
 				const found = await this.broker.call('v1.config.get', { key });
