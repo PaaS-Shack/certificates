@@ -96,6 +96,12 @@ module.exports = {
 				trim: true,
 				empty: false,
 			},
+			expiresAt: {
+				type: "number",
+				required: false,
+				trim: true,
+				empty: false,
+			},
 
 			...DbService.FIELDS
 		},
