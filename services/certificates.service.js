@@ -387,11 +387,16 @@ module.exports = {
 				const saved = await this.createEntity(null, {
 					domain: params.domain,
 					keySelector: params.keySelector,
+					environment: "production", // TODO: get the environment from the context
+					email:`postmaster@${params.domain}`,
 					type: 'dkim',
 					privkey: privateKey,
 					cert: publicKey,
+					chain: publicKey,
 					expiresAt: Date.now() + (1000 * 3600 * 24 * 365 * 10), // 10 years
 				});
+
+
 
 				// return the saved dkim keys
 				return saved;
