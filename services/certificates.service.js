@@ -4,7 +4,7 @@ const DbService = require("db-mixin");
 const ConfigLoader = require("config-mixin");
 const { MoleculerClientError } = require("moleculer").Errors;
 const forge = require('node-forge');
-const dkim = require('dkim');
+const crypto = require('crypto');
 
 //const Lock = require("../mixins/lock");
 
@@ -378,10 +378,20 @@ module.exports = {
 				const params = Object.assign({}, ctx.params);
 
 				// Generate a DKIM key pair
-				const dkim = await this.generateDKIM(params.domain, params.keySelector);
+				const {
+					publicKey,
+					privateKey
+				} = await this.generateDKIM(1024);
 
 				// save the dkim keys
-				const saved = await this.createEntity(null, dkim);
+				const saved = await this.createEntity(null, {
+					domain: params.domain,
+					keySelector: params.keySelector,
+					type: 'dkim',
+					privkey: privateKey,
+					cert: publicKey,
+					expiresAt: Date.now() + (1000 * 3600 * 24 * 365 * 10), // 10 years
+				});
 
 				// return the saved dkim keys
 				return saved;
@@ -400,36 +410,47 @@ module.exports = {
 	 * Methods
 	 */
 	methods: {
+
 		/**
-		 * Generate dkim keys for a domain
+		 * Generate DKIM keys for a domain
 		 * 
-		 * @param {string} domain - Domain to resolve
-		 * @param {string} keySelector - Key selector to use
+		 * @param {number} keySize - RSA key size (e.g., 2048)
 		 * 
-		 * @returns {Promise} - DKIM keys
+		 * @returns {Promise} - DKIM keys object
 		 */
-		async generateDKIM(domain, keySelector) {
-			const dkimKeys = await dkim.generateKey({
-				domainName: domain,
-				keySelector, // You can choose a key selector here
-				privateKeyLength: 2048, // You can adjust the key length as needed
+		async generateDKIM(keySize = 1024) {
+			return new Promise((resolve, reject) => {
+				crypto.generateKeyPair('rsa', {
+					modulusLength: keySize, // RSA key size
+					publicKeyEncoding: {
+						type: 'spki',
+						format: 'pem',
+					},
+					privateKeyEncoding: {
+						type: 'pkcs8',
+						format: 'pem',
+					},
+				}, (error, publicKey, privateKey) => {
+					if (error) {
+						reject(error);
+					} else {
+
+						resolve({
+							publicKey, privateKey
+						});
+					}
+				});
 			});
-
-			const dkimConfig = {
-				domain,
-				keySelector,
-				type: 'dkim',
-				privkey: dkimKeys.privateKey,
-				chain: dkimKeys.publicKey,
-				cert: dkimKeys.publicKey,
-				email: 'postmaster@' + domain,
-				expiresAt: Date.now() + (1000 * 3600 * 24 * 365 * 10),
-			};
-
-			return dkimConfig;
 		},
-		// promisify setTimeout
-		sleep(time) {
+
+		/**
+		 * Sleep for a given time
+		 * 
+		 * @param {number} time - Time to sleep in ms
+		 * 
+		 * @returns {Promise} - Promise
+		 */
+		sleep(time = 1000) {
 			return new Promise((resolve) => {
 				setTimeout(resolve, time)
 			});
