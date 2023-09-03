@@ -97,6 +97,12 @@ module.exports = {
 				trim: true,
 				empty: false,
 			},
+			keySelector: {
+				type: "string",
+				required: false,
+				trim: true,
+				empty: false,
+			},
 			expiresAt: {
 				type: "number",
 				required: false,
@@ -303,6 +309,82 @@ module.exports = {
 
 				return details;
 			}
+		},
+
+		/**
+		 * Resolve dkim keys for a domain
+		 * if no keys are found, create them
+		 * 
+		 * @actions
+		 * @param {string} domain - Domain to resolve
+		 * @param {string} environment - Environment to resolve
+		 * 
+		 * @returns {Object} - DKIM keys
+		 */
+		resolveDKIM: {
+			cache: false,
+			params: {
+				domain: { type: "string", min: 3, optional: false },
+				keySelector: { type: "string", min: 3, default: 'default', optional: true },
+			},
+			permissions: ['certificates.resolveDKIM'],
+			async handler(ctx) {
+				const params = Object.assign({}, ctx.params);
+
+				const found = await this.findEntity(null, {
+					query: {
+						domain: params.domain,
+						keySelector: params.keySelector,
+						type: 'dkim'
+					},
+					sort: ['-createdAt'],
+				});
+
+				if (found) {
+					found.age = (Date.now() - (new Date(found.createdAt))) / (1000 * 3600 * 24);
+					return found;
+				}
+
+				//if autoGenerate false throw error
+				if (this.config['certificates.autoGenerate'] === false) {
+					throw new MoleculerClientError('Certificate not found.', 400, 'ERR_CERTIFICATE_NOT_FOUND', { params });
+				}
+
+				// if the certificate is not found, create one
+				return ctx.call('v1.certificates.dkim', {
+					domain: params.domain,
+					keySelector: params.keySelector
+				})
+			}
+		},
+
+		/**
+		 * Create dkim keys for a domain
+		 * 
+		 * @actions
+		 * @param {string} domain - Domain to resolve
+		 * @param {string} environment - Environment to resolve
+		 * 
+		 * @returns {Object} - DKIM keys
+		 */
+		dkim: {
+			params: {
+				domain: { type: "string", min: 3, optional: false },
+				keySelector: { type: "string", min: 3, default: 'default', optional: true },
+			},
+			permissions: ['certificates.dkim'],
+			async handler(ctx) {
+				const params = Object.assign({}, ctx.params);
+
+				// Generate a DKIM key pair
+				const dkim = await this.generateDKIM(params.domain, params.keySelector);
+
+				// save the dkim keys
+				const saved = await this.createEntity(null, dkim);
+
+				// return the saved dkim keys
+				return saved;
+			}
 		}
 	},
 
@@ -317,6 +399,34 @@ module.exports = {
 	 * Methods
 	 */
 	methods: {
+		/**
+		 * Generate dkim keys for a domain
+		 * 
+		 * @param {string} domain - Domain to resolve
+		 * @param {string} keySelector - Key selector to use
+		 * 
+		 * @returns {Promise} - DKIM keys
+		 */
+		async generateDKIM(domain, keySelector) {
+			const dkimKeys = await dkim.generateKey({
+				domainName: domain,
+				keySelector, // You can choose a key selector here
+				privateKeyLength: 2048, // You can adjust the key length as needed
+			});
+
+			const dkim = {
+				domain,
+				keySelector,
+				type: 'dkim',
+				privkey: dkimKeys.privateKey,
+				chain: dkimKeys.publicKey,
+				cert: dkimKeys.publicKey,
+				email: 'postmaster@' + domain,
+				expiresAt: Date.now() + (1000 * 3600 * 24 * 365 * 10),
+			};
+
+			return dkim;
+		},
 		// promisify setTimeout
 		sleep(time) {
 			return new Promise((resolve) => {
