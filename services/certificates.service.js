@@ -385,9 +385,10 @@ module.exports = {
 
 
 				// Strip "-----BEGIN PUBLIC KEY-----" and "-----END PUBLIC KEY-----" lines
-				const strippedPublicKey = publicKey.replace(/^-----BEGIN PUBLIC KEY-----$/m, '')
-					.replace(/^-----END PUBLIC KEY-----$/m, '')
-					.trim();
+				const strippedPublicKey = publicKey
+					.replace(/^-----BEGIN PUBLIC KEY-----\n/, '')
+					.replace(/-----END PUBLIC KEY-----\n$/, '')
+					.replace(/\n/g, ''); // Remove any remaining newlines
 
 				// save the dkim keys
 				const saved = await this.createEntity(null, {
