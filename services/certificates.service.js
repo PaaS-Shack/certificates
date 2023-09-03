@@ -383,20 +383,24 @@ module.exports = {
 					privateKey
 				} = await this.generateDKIM(1024);
 
+
+				// Strip "-----BEGIN PUBLIC KEY-----" and "-----END PUBLIC KEY-----" lines
+				const strippedPublicKey = publicKey.replace(/^-----BEGIN PUBLIC KEY-----$/m, '')
+					.replace(/^-----END PUBLIC KEY-----$/m, '')
+					.trim();
+
 				// save the dkim keys
 				const saved = await this.createEntity(null, {
 					domain: params.domain,
 					keySelector: params.keySelector,
 					environment: "production", // TODO: get the environment from the context
-					email:`postmaster@${params.domain}`,
+					email: `postmaster@${params.domain}`,
 					type: 'dkim',
 					privkey: privateKey,
-					cert: publicKey,
+					cert: strippedPublicKey,
 					chain: publicKey,
 					expiresAt: Date.now() + (1000 * 3600 * 24 * 365 * 10), // 10 years
 				});
-
-
 
 				// return the saved dkim keys
 				return saved;
