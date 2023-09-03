@@ -499,7 +499,7 @@ module.exports = {
 		 * @returns {Object} - Certificate
 		 */
 		findByID(ctx, id) {
-			return this.resolveEntity(null, {
+			return this.resolveEntities(null, {
 				id
 			})
 		},
