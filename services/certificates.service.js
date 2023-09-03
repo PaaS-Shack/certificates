@@ -4,6 +4,7 @@ const DbService = require("db-mixin");
 const ConfigLoader = require("config-mixin");
 const { MoleculerClientError } = require("moleculer").Errors;
 const forge = require('node-forge');
+const dkim = require('dkim');
 
 //const Lock = require("../mixins/lock");
 
@@ -414,7 +415,7 @@ module.exports = {
 				privateKeyLength: 2048, // You can adjust the key length as needed
 			});
 
-			const dkim = {
+			const dkimConfig = {
 				domain,
 				keySelector,
 				type: 'dkim',
@@ -425,7 +426,7 @@ module.exports = {
 				expiresAt: Date.now() + (1000 * 3600 * 24 * 365 * 10),
 			};
 
-			return dkim;
+			return dkimConfig;
 		},
 		// promisify setTimeout
 		sleep(time) {
