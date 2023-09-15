@@ -239,7 +239,7 @@ module.exports = {
 						environment: params.environment,
 						type: params.type
 					},
-					fields: ['id', 'createdAt', 'domain', 'environment', 'type']
+					//fields: ['id', 'createdAt', 'domain', 'environment', 'type']
 				});
 
 				if (found) {
