@@ -54,7 +54,7 @@ module.exports = {
 				required: true,
 				trim: true,
 				empty: false,
-				secure: true,
+				//secure: true,
 			},
 			chain: {
 				type: "string",
