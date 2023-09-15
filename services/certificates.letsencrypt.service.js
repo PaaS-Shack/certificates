@@ -97,7 +97,6 @@ module.exports = {
 	 * Actions
 	 */
 	actions: {
-		...DbService.ACTIONS,
 		getExpiring: {
 			params: {
 
