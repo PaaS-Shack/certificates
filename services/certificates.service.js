@@ -231,18 +231,36 @@ module.exports = {
 			async handler(ctx) {
 				const params = Object.assign({}, ctx.params);
 
-				const found = await this.findEntity(null, {
+				let found = await this.findEntity(null, {
 					query: {
 						domain: params.domain,
 						environment: params.environment,
 						type: params.type
 					},
+					sort: ['-createdAt'],
 					//fields: ['id', 'createdAt', 'domain', 'environment', 'type']
 				});
 
 				if (found) {
 					found.age = (Date.now() - (new Date(found.createdAt))) / (1000 * 3600 * 24);
 					return found;
+				}else{
+					const split=params.domain.split('.');
+					split.shift();
+					const wildcard = `*.${split.join('.')}`
+					found = await this.findEntity(null, {
+						query: {
+							domain: wildcard,
+							environment: params.environment,
+							type: params.type
+						},
+						sort: ['-createdAt'],
+						//fields: ['id', 'createdAt', 'domain', 'environment', 'type']
+					});
+					if (found) {
+						found.age = (Date.now() - (new Date(found.createdAt))) / (1000 * 3600 * 24);
+						return found;
+					}
 				}
 
 				//if autoGenerate false throw error
