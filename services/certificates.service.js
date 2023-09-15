@@ -131,8 +131,6 @@ module.exports = {
 	 * Actions
 	 */
 	actions: {
-		// extend the default actions
-		...DbService.ACTIONS,
 
 		// disable rest endpoint for create action
 		create: { rest: false },
