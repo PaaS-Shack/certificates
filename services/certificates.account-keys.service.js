@@ -140,12 +140,16 @@ module.exports = {
                 if (found)
                     throw new MoleculerClientError("Account key already exists", 409, "ACCOUNT_KEY_EXISTS", { email, environment, provider });
 
+                if (provider == 'zerossl' && environment == 'staging')
+                    throw new MoleculerClientError("Account key not supported for zerossl staging", 409, "ACCOUNT_KEY_NOT_SUPPORTED", { email, environment, provider });
+
                 // get the provider config from acme module
-                const environmentConfig = acme.directory[provider][environment];
+                const directoryUrl = acme.directory[provider][environment];
+
 
                 // create the acme client
                 const client = new acme.Client({
-                    directoryUrl: environmentConfig.directoryUrl,
+                    directoryUrl,
                     accountKey: await acme.forge.createPrivateKey(),
                 });
 
