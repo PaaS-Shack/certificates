@@ -147,7 +147,7 @@ module.exports = {
                     throw new MoleculerClientError("Domain not found", 404, "DOMAIN_NOT_FOUND", { domain: params.domain });
 
                 // get domain owner email
-                const email = await ctx.call('v1.accounts.resolve', { id: domain.owner, fields: ['email'] }).then((user) => user.email);
+                const email = await ctx.call('v1.accounts.resolve', { id: domainObnject.owner, fields: ['email'] }).then((user) => user.email);
                 const environment = params.environment;
 
                 // request a new certificate from Let's Encrypt
@@ -248,7 +248,7 @@ module.exports = {
                     throw new MoleculerClientError("Domain not found", 404, "DOMAIN_NOT_FOUND", { domain: cert.domain });
 
                 // get domain owner email
-                const email = await ctx.call('v1.accounts.resolve', { id: domain.owner, fields: ['email'] }).then((user) => user.email);
+                const email = await ctx.call('v1.accounts.resolve', { id: domainObnject.owner, fields: ['email'] }).then((user) => user.email);
                 const environment = cert.environment;
 
                 // create the certificate object
