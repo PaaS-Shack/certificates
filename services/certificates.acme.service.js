@@ -72,7 +72,12 @@ module.exports = {
             permissions: ['certificates.acme.letsencrypt'],
             params: {
                 domain: { type: "string" },// fqdn 
-                environment: { type: "enum", values: ["production", "staging"] }
+                environment: {
+                    type: "enum",
+                    values: ["production", "staging"],
+                    optional: true,
+                    default: "production"
+                }
             },
             async handler(ctx) {
                 const params = ctx.params;
@@ -85,7 +90,7 @@ module.exports = {
                     throw new MoleculerClientError("Domain not found", 404, "DOMAIN_NOT_FOUND", { domain: params.domain });
 
                 // get domain owner email
-                const email = await ctx.call('v1.accounts.resolve', { id: domain.owner, fields: ['email'] }).then((user) => user.email);
+                const email = await ctx.call('v1.accounts.resolve', { id: domainObnject.owner, fields: ['email'] }).then((user) => user.email);
                 const environment = params.environment;
 
                 // request a new certificate from Let's Encrypt
