@@ -141,7 +141,7 @@ module.exports = {
                     throw new MoleculerClientError("Account key already exists", 409, "ACCOUNT_KEY_EXISTS", { email, environment, provider });
 
                 // get the provider config from acme module
-                const environmentConfig = acme[provider][environment];
+                const environmentConfig = acme.directory[provider][environment];
 
                 // create the acme client
                 const client = new acme.Client({
