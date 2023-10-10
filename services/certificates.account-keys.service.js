@@ -49,27 +49,6 @@ module.exports = {
         rest: true,
 
         fields: {
-            privkey: {
-                type: "string",
-                required: true,
-                trim: true,
-                empty: false,
-                secure: true,
-            },
-            chain: {
-                type: "string",
-                required: true,
-                trim: true,
-                empty: false,
-                secure: true,
-            },
-            cert: {
-                type: "string",
-                required: true,
-                trim: true,
-                empty: false,
-                secure: true,
-            },
             environment: {
                 type: "enum",
                 default: "production",
@@ -85,6 +64,16 @@ module.exports = {
                 required: true,
                 trim: true,
                 empty: false,
+            },
+            accountKey: {
+                type: "string",
+                required: true,
+            },
+
+            // account
+            account: {
+                type: "object",
+                required: false,
             },
 
 
@@ -146,30 +135,27 @@ module.exports = {
                 // get the provider config from acme module
                 const directoryUrl = acme.directory[provider][environment];
 
+                const accountKey = await acme.forge.createPrivateKey();
 
                 // create the acme client
                 const client = new acme.Client({
                     directoryUrl,
-                    accountKey: await acme.forge.createPrivateKey(),
+                    accountKey: accountKey
                 });
 
                 // create the account key
-                const accountKey = await client.createAccount({
+                const account = await client.createAccount({
                     termsOfServiceAgreed: true,
                     contact: [`mailto:${email}`],
                 });
 
-                // get the account key details
-                const accountKeyDetails = await client.getAccountKey();
-
                 // create the account key object
                 const accountKeyObject = {
-                    privkey: accountKey.privateKeyPem,
-                    chain: accountKeyDetails.chain,
-                    cert: accountKeyDetails.certificate,
-                    environment: environment,
-                    provider: provider,
-                    email: email,
+                    provider,
+                    environment,
+                    email,
+                    accountKey,
+                    account,
                 };
 
                 // save the account key to the database

@@ -347,7 +347,7 @@ module.exports = {
             // get account key
             const accountKey = await this.getAccountKey(ctx, email, environment, "letsencrypt");
             const directoryUrl = environment === "production" ? acme.directory.letsencrypt.production : acme.directory.letsencrypt.staging;
-
+            console.log('accountKey', accountKey)
             // create the acme client
             const client = new acme.Client({
                 directoryUrl,
@@ -369,9 +369,9 @@ module.exports = {
 
                     this.logger.info(`challengeCreateFn ${domainObject.domain} ${email} ${environment} ${fqdn} ${data}`);
 
-                    const record = await this.addDnsRecord(ctx, domainObject.id, fqdn, data);
+                    const record = await this.addDnsRecord(ctx, domainObject.owner, domainObject.id, fqdn, data);
 
-                    await this.waitForRecord(ctx, fqdn, data);
+                   // await this.waitForRecord(ctx, fqdn, data);
 
                     return record;
                 },
@@ -381,7 +381,7 @@ module.exports = {
 
                     this.logger.info(`challengeRemoveFn ${domainObject.domain} ${email} ${environment} ${fqdn} ${data}`);
 
-                    const record = await this.removeDnsRecord(ctx, domainObject.id, fqdn, data);
+                    const record = await this.removeDnsRecord(ctx, domainObject.owner, domainObject.id, fqdn, data);
 
                     return record;
                 }
@@ -441,14 +441,14 @@ module.exports = {
         async getAccountKey(ctx, email, environment, provider) {
 
             // lookup email environment and provider at service v1.certificates.account-keys
-            const accountKey = await ctx.call("v1.certificates.account-keys.getPrivateKey", {
+            const account = await ctx.call("v1.certificates.account-keys.getPrivateKey", {
                 email, environment, provider
             });
-
+            console.log(account)
             // if account key found return the account key
-            if (accountKey) {
+            if (account) {
                 this.logger.info(`Account key found for ${email} ${environment} ${provider}`);
-                return accountKey;
+                return account.accountKey;
             }
 
             // create new account key at service v1.certificates.account-keys
@@ -459,13 +459,14 @@ module.exports = {
             this.logger.info(`Account key created for ${email} ${environment} ${provider}`);
 
             // return the new account key
-            return newAccountKey.privkey;
+            return newAccountKey.accountKey;
         },
 
         /**
          * Add DNS record through the domains.records service
          * 
          * @param {Object} ctx - Context
+         * @param {String} owner - Owner id
          * @param {String} domainID - Domain id
          * @param {String} fqdn - Record name
          * @param {String} data - Record TXT value
@@ -473,10 +474,10 @@ module.exports = {
          * 
          * @returns {Object} Record
          */
-        async addDnsRecord(ctx, domain, fqdn, data, type = "TXT") {
+        async addDnsRecord(ctx, owner, domain, fqdn, data, type = "TXT") {
             const record = await ctx.call("v1.domains.records.create", {
                 domain, fqdn, type, data
-            });
+            }, { meta: { userID: owner } });
             this.logger.info(`${domain} adding TXT record for ${fqdn}`, record);
             return record;
         },
@@ -485,16 +486,17 @@ module.exports = {
          * Remove DNS record through the domains.records service
          * 
          * @param {Object} ctx - Context
+         * @param {String} owner - Owner id
          * @param {String} domainID - Domain id
          * @params {String} recordID - Record id
          * 
          * @returns {String} Record id
          */
-        async removeDnsRecord(ctx, domain, record) {
+        async removeDnsRecord(ctx, owner, domain, record) {
             const recordID = await ctx.call("v1.domains.records.remove", {
                 domain,
                 id: record.id
-            });
+            }, { meta: { userID: owner } });
 
             this.logger.info(`${domain} removing TXT record for ${record.fqdn}`, record);
 
@@ -579,9 +581,5 @@ module.exports = {
             const expirationDate = cert.match(/Not After : (.*)/)[1];
             return new Date(expirationDate);
         },
-
-
-
-
     },
 };
