@@ -109,6 +109,10 @@ module.exports = {
 				required: false,
 				trim: true,
 				empty: false,
+				onCreate:function({ctx}){
+					// 90 days from now
+					return Date.now() + (1000 * 3600 * 24 * 90);
+				}
 			},
 
 			...DbService.FIELDS
