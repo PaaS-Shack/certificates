@@ -364,7 +364,7 @@ module.exports = {
                 email,
                 termsOfServiceAgreed: true,
                 challengeCreateFn: async (authz, challenge, keyAuthorization) => {
-                    const fqdn = authz.identifier.value;
+                    const fqdn = `_acme-challenge.${authz.identifier.value}`;
                     const data = keyAuthorization;
 
                     this.logger.info(`challengeCreateFn ${domainObject.domain} ${email} ${environment} ${fqdn} ${data}`);
@@ -376,7 +376,7 @@ module.exports = {
                     return record;
                 },
                 challengeRemoveFn: async (authz, challenge, keyAuthorization) => {
-                    const fqdn = authz.identifier.value;
+                    const fqdn = `_acme-challenge.${authz.identifier.value}`;
                     const data = keyAuthorization;
 
                     this.logger.info(`challengeRemoveFn ${domainObject.domain} ${email} ${environment} ${fqdn} ${data}`);
