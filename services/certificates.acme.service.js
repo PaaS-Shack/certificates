@@ -371,7 +371,7 @@ module.exports = {
 
                     const record = await this.addDnsRecord(ctx, domainObject.owner, domainObject.id, fqdn, data);
 
-                   // await this.waitForRecord(ctx, fqdn, data);
+                    await this.waitForRecord(ctx, fqdn, data);
 
                     return record;
                 },
@@ -520,8 +520,9 @@ module.exports = {
             const startTime = new Date();
 
             while (true) {
-                const results = await ctx.call("v1.resolver.propagation", {
-                    fqdn, type
+                const results = await ctx.call("v1.utils.dns.propagate", {
+                    host: fqdn, 
+                    type
                 });
 
                 const fulfilled = results.filter(result => result.status === "fulfilled");
