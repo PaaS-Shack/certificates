@@ -363,6 +363,7 @@ module.exports = {
                 csr,
                 email,
                 termsOfServiceAgreed: true,
+                skipChallengeVerification: true,
                 challengeCreateFn: async (authz, challenge, keyAuthorization) => {
                     const fqdn = `_acme-challenge.${authz.identifier.value}`;
                     const data = keyAuthorization;
@@ -371,7 +372,7 @@ module.exports = {
 
                     const record = await this.addDnsRecord(ctx, domainObject.owner, domainObject.id, fqdn, data);
 
-                    await this.waitForRecord(ctx, fqdn, data);
+                    //await this.waitForRecord(ctx, fqdn, data);
 
                     return record;
                 },
